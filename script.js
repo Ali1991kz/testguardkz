@@ -4,7 +4,7 @@
 
 const CONFIG = {
   // ⚠️ Маңызды: Гугл Apps Script-тен алған сілтемеңіз
-  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzLtpqXeZtkUMiiNlEpFpyJiHd3w-GhWGG-36WRwK_yuc7JxTn485s5PKjES4tb8eppNw/exec",
+  APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwL7Xg4O1mTR_JhGkCUj4TXa6NywGPKjCA5nUtsHdx0X96wIGdLJ7vDZeqm_XKzR-OiVw/exec",
   MAX_FULLSCREEN_EXITS: 3,
   MAX_TAB_SWITCHES: 3,
   MAX_PRINTSCREEN_WARNINGS: 3,
