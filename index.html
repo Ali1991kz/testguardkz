@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>TestGuard — Онлайн тест платформасы</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body oncontextmenu="return false;">
+
+  <div class="app-shell">
+    <div class="topbar">
+      <div class="brand"><span class="dot"></span> TestGuard</div>
+      <span class="badge badge-blue">Академиялық адалдық режимі</span>
+    </div>
+
+    <!-- ====================== КІРУ ЭКРАНЫ ====================== -->
+    <section id="screenLogin" class="screen card">
+      <h1>Тестке кіру</h1>
+      <p class="subtitle">Тестті бастамас бұрын деректеріңізді толтырыңыз.</p>
+
+      <form id="loginForm">
+        <div class="field">
+          <label for="inputFullName">Аты-жөні</label>
+          <input type="text" id="inputFullName" placeholder="Мысалы: Асанов Ерлан" required />
+        </div>
+        <div class="field">
+          <label for="inputGrade">Сыныбы</label>
+          <input type="text" id="inputGrade" placeholder="Мысалы: 8А" required />
+        </div>
+        <div class="field">
+          <label for="inputIdLast4">ID немесе ЖСН соңғы 4 саны</label>
+          <input type="text" id="inputIdLast4" maxlength="4" inputmode="numeric" placeholder="0000" required />
+          <div class="hint">Бұл сіздің жеке нәтижеңізді анықтау үшін қажет.</div>
+        </div>
+
+        <div id="loginError" class="hint" style="color:#ef4444; display:none;"></div>
+
+        <button type="submit" id="btnStartTest" class="btn btn-primary btn-block">Тестті бастау</button>
+      </form>
+
+      <p class="hint" style="margin-top:16px;">
+        ⚠️ Тест барысында толық экран режимі, камера және микрофон қолданылады.
+        Басқа бетке өту, көшіру және скриншот жасау бақыланады.
+      </p>
+    </section>
+
+    <!-- ====================== ҚАЙТА ТАПСЫРУҒА ТЫЙЫМ ====================== -->
+    <section id="screenAlreadySubmitted" class="screen card" style="display:none;">
+      <h1>Сіз бұл тестті бұрын тапсырғансыз</h1>
+      <p class="subtitle">Әр оқушы тестті тек бір рет тапсыра алады. Қате деп есептесеңіз, мұғаліміңізге хабарласыңыз.</p>
+      <button id="btnRestartInfo" class="btn btn-secondary btn-block">Басты бетке оралу</button>
+    </section>
+
+    <!-- ====================== ТЕСТ ЭКРАНЫ ====================== -->
+    <section id="screenQuiz" class="screen card" style="display:none;">
+      <div class="quiz-header">
+        <span id="questionCounter" class="question-counter">Сұрақ 1 / 10</span>
+        <span id="timerDisplay" class="timer">⏱ 30:00</span>
+      </div>
+      <div class="progress-wrap"><div id="progressBar" class="progress-bar" style="width:0%"></div></div>
+
+      <div id="questionText" class="question-text">Сұрақ мәтіні</div>
+      <div id="answerList" class="answer-list"></div>
+
+      <div class="nav-row">
+        <button id="btnPrev" class="btn btn-secondary">← Алдыңғы</button>
+        <button id="btnNext" class="btn btn-primary">Келесі →</button>
+      </div>
+    </section>
+
+    <!-- ====================== НӘТИЖЕ ЭКРАНЫ ====================== -->
+    <section id="screenResult" class="screen card" style="display:none;">
+      <h1 style="text-align:center;">Тест аяқталды</h1>
+      <p id="resultReason" class="subtitle" style="text-align:center;"></p>
+      
+      <div class="result-score" id="resultScore">0 / 0</div>
+      <div class="result-percent" id="resultPercent">0%</div>
+
+      <div class="result-grid">
+        <div class="result-stat"><div class="num" id="resultCorrect">0</div><div class="label">Дұрыс</div></div>
+        <div class="result-stat"><div class="num" id="resultWrong">0</div><div class="label">Қате</div></div>
+        <div class="result-stat"><div class="num" id="resultDuration">0 мин</div><div class="label">Уақыт</div></div>
+      </div>
+
+      <p class="hint" style="text-align:center;">Нәтижеңіз мұғаліміңізге автоматты түрде жіберілді.</p>
+      
+      <button id="btnReviewMistakes" class="btn btn-secondary btn-block" style="margin-top: 16px;">Қатемен жұмыс жасау</button>
+    </section>
+
+    <!-- ====================== ҚАТЕМЕН ЖҰМЫС ЭКРАНЫ ====================== -->
+    <section id="screenReview" class="screen card" style="display:none;">
+      <h1 style="text-align:center;">Қатемен жұмыс</h1>
+      <p class="subtitle" style="text-align:center;">Қай сұрақтан қате жібергеніңізді көре аласыз.</p>
+      
+      <div id="reviewList" style="margin-top: 20px; max-height: 50vh; overflow-y: auto; text-align: left; font-size: 14px;"></div>
+
+      <button id="btnBackToResult" class="btn btn-primary btn-block" style="margin-top:20px;">Нәтижеге оралу</button>
+    </section>
+    
+    <footer class="small-print">TestGuard · Академиялық адалдықты қолдайтын тест платформасы</footer>
+  </div>
+
+  <!-- Камера preview -->
+  <div id="cameraPreview" class="camera-preview" style="display:none;">
+    <video id="cameraPreviewVideo" autoplay muted playsinline></video>
+    <div class="cam-label">Камера белсенді</div>
+  </div>
+
+  <!-- Ескерту overlay -->
+  <div id="warningOverlay" class="warning-overlay">
+    <div class="icon">⚠️</div>
+    <h2 id="warningTitle">Ескерту</h2>
+    <p id="warningText">Мәтін</p>
+  </div>
+
+  <!-- Скриншот блэкаут -->
+  <div id="blackoutOverlay" class="blackout">
+    <div id="blackoutText">Screenshot жасауға болмайды</div>
+  </div>
+
+  <!-- Негізгі script.js файлыңыз -->
+  <script src="script.js"></script>
+
+  <!-- ================= МҰҒАЛІМ БАПТАУЛАРЫН ТЕКСЕРУ КОДЫ ================= -->
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwL7Xg4O1mTR_JhGkCUj4TXa6NywGPKjCA5nUtsHdx0X96wIGdLJ7vDZeqm_XKzR-OiVw/exec";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const loginForm = document.getElementById("loginForm");
+      const btnStart = document.getElementById("btnStartTest");
+
+      if (loginForm) {
+        loginForm.addEventListener("submit", async function(e) {
+          e.preventDefault(); // Форманың автоматты түрде өтіп кетуін тоқтатамыз
+
+          const originalText = btnStart.textContent;
+          btnStart.textContent = "Баптаулар тексерілуде...";
+          btnStart.disabled = true;
+
+          try {
+            // 1. Гугл Таблицадан мұғалімнің баптауларын жүктеу
+            const res = await fetch(`${APPS_SCRIPT_URL}?action=getSettings`);
+            const settings = await res.json();
+            const now = new Date();
+
+            // 2. Тесттің басталу уақытын тексеру
+            if (settings.startTime) {
+              const startTime = new Date(settings.startTime);
+              if (now < startTime) {
+                alert(`⚠️ Тест әлі ашылған жоқ!\nТесттің басталу уақыты: ${startTime.toLocaleString()}`);
+                resetBtn(originalText);
+                return;
+              }
+            }
+
+            // 3. Тесттің аяқталу уақытын (Дедлайн) тексеру
+            if (settings.endTime) {
+              const endTime = new Date(settings.endTime);
+              if (now > endTime) {
+                alert(`⛔️ Тест тапсыру уақыты өтіп кетті!\nЖабылу уақыты: ${endTime.toLocaleString()}`);
+                resetBtn(originalText);
+                return;
+              }
+            }
+
+            // 4. ПИН-кодты тексеру
+            if (settings.pin && settings.pin.trim() !== "") {
+              const userPin = prompt("🔑 Мұғалім берген ПИН-кодты енгізіңіз:");
+              if (userPin === null) {
+                resetBtn(originalText);
+                return; // Оқушы бас тартты
+              }
+              if (userPin.trim() !== settings.pin.trim()) {
+                alert("❌ ПИН-код қате! Мұғалімнен дұрыс кодты сұраңыз.");
+                resetBtn(originalText);
+                return;
+              }
+            }
+
+            // 5. Уақыт пен Өту балын глобалды сақтау
+            if (settings.duration && parseInt(settings.duration) > 0) {
+              window.testDurationSeconds = parseInt(settings.duration) * 60;
+            }
+            if (settings.passScore) {
+              window.requiredPassScore = parseInt(settings.passScore);
+            }
+
+            // Барлық тексеріс дұрыс болса -> Кіру экранын жауып, тест экранын ашамыз
+            document.getElementById("screenLogin").style.display = "none";
+            document.getElementById("screenQuiz").style.display = "block";
+
+            // Егер script.js ішінде арнайы тест бастайтын функция болса, шақырамыз
+            if (typeof startQuiz === "function") startQuiz();
+            if (typeof initQuiz === "function") initQuiz();
+
+          } catch (err) {
+            console.error("Баптауларды тексеру қатесі:", err);
+            // Байланыс болмай қалса да тестке кіргізе беру (немесе alert беру)
+            document.getElementById("screenLogin").style.display = "none";
+            document.getElementById("screenQuiz").style.display = "block";
+          } finally {
+            resetBtn(originalText);
+          }
+        });
+      }
+
+      function resetBtn(text) {
+        btnStart.textContent = text;
+        btnStart.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

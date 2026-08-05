@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TestGuard — Мұғалім панелі</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .admin-shell { max-width: 1180px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:18px; }
+  .toolbar input, .toolbar select { padding:10px 12px; border-radius:8px; border:1.5px solid var(--gray-300); font-family:inherit; }
+  table { width:100%; border-collapse: collapse; font-size:0.88rem; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--gray-300); }
+  th { background: var(--blue-100); color:var(--blue-900); position:sticky; top:0; }
+  tr:hover td { background:#f5f9ff; }
+  .table-wrap { max-height:480px; overflow:auto; border-radius:12px; border:1px solid var(--gray-300); }
+  
+  .stat-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px; margin-bottom:20px; }
+  .stat-card { background:var(--blue-100); border-radius:14px; padding:16px; text-align:center; }
+  .stat-card .num { font-size:1.6rem; font-weight:800; color:var(--blue-900); }
+  .stat-card .label { font-size:0.78rem; color:var(--gray-600); }
+  
+  .tabs { display:flex; gap:8px; margin-bottom:18px; flex-wrap: wrap; }
+  .tab-btn { padding:10px 18px; border-radius:999px; border:1.5px solid var(--gray-300); background:#fff; cursor:pointer; font-weight:600; color:var(--gray-600); transition:0.2s; }
+  .tab-btn.active { background:var(--blue-500); color:#fff; border-color:var(--blue-500); }
+  
+  .json-editor { width:100%; min-height:420px; font-family:'Consolas', monospace; font-size:0.85rem; border-radius:10px; border:1.5px solid var(--gray-300); padding:14px; }
+  
+  /* ИКШАМДЕЛГЕН ДИАГРАММА СТИЛЬДЕРІ */
+  .chart-container {
+    position: relative;
+    height: 200px;
+    width: 100%;
+  }
+  canvas#chartCanvas, canvas#classAvgChart {
+    width: 100% !important;
+    height: 200px !important;
+    max-height: 200px !important;
+  }
+  
+  .qcard { border:1.5px solid var(--gray-300); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .qcard .qtitle { font-weight:600; margin-bottom:6px; }
+  .qcard .qans { font-size:0.85rem; color:var(--gray-600); }
+  
+  .row-actions { display:flex; gap:8px; margin-top:8px; }
+  .row-actions button { font-size:0.78rem; padding:6px 12px; }
+
+  /* ЖАҢА СТИЛЬДЕР: Бұзушылықтар журналы мен Аналитика үшін */
+  .badge-danger { background: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; }
+  .badge-warning { background: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; }
+  .badge-info { background: #e0f2fe; color: #075985; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 0.75rem; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 18px; }
+</style>
+</head>
+<body>
+
+<div class="app-shell admin-shell">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> TestGuard · Мұғалім панелі</div>
+    <button id="btnLogout" class="btn btn-secondary" style="display:none;">Шығу</button>
+  </div>
+
+  <!-- ============ ПАРОЛЬ ЭКРАНЫ ============ -->
+  <section id="loginGate" class="card">
+    <h1>Кіру</h1>
+    <p class="subtitle">Мұғалім панеліне кіру үшін парольді енгізіңіз.</p>
+    <div class="field">
+      <label for="adminPassword">Пароль</label>
+      <input type="password" id="adminPassword" placeholder="••••••••" />
+    </div>
+    <div id="adminLoginError" class="hint" style="color:#ef4444; display:none;">Пароль қате.</div>
+    <button id="btnAdminLogin" class="btn btn-primary btn-block">Кіру</button>
+  </section>
+
+  <!-- ============ ПАНЕЛЬ ============ -->
+  <section id="adminPanel" style="display:none;">
+    <!-- ТАБТАР -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="results">📋 Нәтижелер</button>
+      <button class="tab-btn" data-tab="rating">🏆 Рейтинг</button>
+      <button class="tab-btn" data-tab="analytics">📊 Аналитика</button>
+      <button class="tab-btn" data-tab="logs">🚨 Бұзушылықтар журналы</button>
+      <button class="tab-btn" data-tab="questions">⚙️ Сұрақтар</button>
+      <button class="tab-btn" data-tab="settings">🛠 Баптаулар</button>
+    </div>
+
+    <!-- 1. НӘТИЖЕЛЕР ТАБЫ -->
+    <div id="tabResults">
+      <div class="stat-cards" id="statCards"></div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <div class="chart-container">
+          <canvas id="chartCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="searchInput" placeholder="Аты-жөні бойынша іздеу..." style="flex:1; min-width:180px;" />
+          <select id="filterGrade"><option value="">Барлық сынып</option></select>
+          <button id="btnExportExcel" class="btn btn-secondary">Excel жүктеу</button>
+          <button id="btnExportPdf" class="btn btn-secondary">PDF экспорт</button>
+          <button id="btnRefresh" class="btn btn-primary">Жаңарту</button>
+        </div>
+        
+        <div class="table-wrap">
+          <table id="resultsTable">
+            <thead>
+              <tr>
+                <th>Күні</th><th>Уақыты</th><th>Аты-жөні</th><th>Сынып</th><th>ID</th>
+                <th>Ұпай</th><th>%</th><th>Дұрыс</th><th>Қате</th><th>Ұзақтығы</th>
+                <th>FS шығу</th><th>Tab</th><th>PrintScr</th><th>Copy</th><th>DevTools</th>
+                <th>Браузер</th><th>Құрылғы</th><th>OS</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div> <!-- Осы жерде Нәтижелер табы жабылуы керек -->
+
+    <!-- РЕЙТИНГ ТАБЫ (Дұрыс орынға шығарылды) -->
+    <div id="tabRating" class="tab-content" style="display: none;">
+      <h2>🏆 Оқушылар рейтингі</h2>
+      
+      <div class="filters" style="margin-bottom: 20px; display: flex; gap: 10px;">
+        <input type="text" id="ratingSearchInput" placeholder="Аты-жөні бойынша іздеу..." class="input-field" style="padding:10px 12px; border-radius:8px; border:1.5px solid var(--gray-300);">
+        <select id="ratingGradeFilter" class="input-field" style="padding:10px 12px; border-radius:8px; border:1.5px solid var(--gray-300);">
+          <option value="">Барлық сынып</option>
+        </select>
+      </div>
+      
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Орын</th>
+              <th>Аты-жөні</th>
+              <th>Сыныбы</th>
+              <th>Нәтижесі</th>
+              <th>Уақыты</th>
+            </tr>
+          </thead>
+          <tbody id="ratingTableBody">
+            <!-- Рейтинг осында автоматты түрде түседі -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 2. АНАЛИТИКА ТАБЫ -->
+    <div id="tabAnalytics" style="display:none;">
+      <div class="stat-cards">
+        <div class="stat-card">
+          <div class="num" id="statHardestQuestion">#--</div>
+          <div class="label">Ең күрделі сұрақ</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="statAvgScore">0%</div>
+          <div class="label">Жалпы орташа балл</div>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="statBestGrade">--</div>
+          <div class="label">Үздік сынып</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Сыныптар бойынша орташа балл (%)</h3>
+          <div class="chart-container" style="margin-top: 15px;">
+            <canvas id="classAvgChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Сұрақтар бойынша қателіктер талдауы</h3>
+          <p class="subtitle" style="margin-bottom: 12px;">Мұғалімге қай тақырыпты қайта түсіндіру керектігін көрсетеді.</p>
+          <div class="table-wrap" style="max-height: 250px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>№</th><th>Сұрақ мәтіні</th><th>Қате түскен %</th>
+                </tr>
+              </thead>
+              <tbody id="analyticsQuestionsBody">
+                <!-- JavaScript арқылы толады -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. БҰЗУШЫЛЫҚТАР ЖУРНАЛЫ ТАБЫ -->
+    <div id="tabLogs" style="display:none;">
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="logSearchInput" placeholder="Оқушы аты-жөні бойынша фильтр..." style="flex:1; min-width:200px;" />
+          <select id="logTypeFilter">
+            <option value="">Барлық бұзушылық түрі</option>
+            <option value="tab">Вкладка ауыстыру (Tab Switch)</option>
+            <option value="fullscreen">Толық экраннан шығу (Fullscreen Exit)</option>
+            <option value="devtools">DevTools / Консоль ашу</option>
+            <option value="copy">Мәтінді көшіру (Copy/Paste)</option>
+          </select>
+          <button id="btnClearLogs" class="btn btn-secondary" style="color:#ef4444;">Журналды тазалау</button>
+        </div>
+
+        <div class="table-wrap" style="max-height: 520px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Уақыты</th>
+                <th>Оқушының аты-жөні</th>
+                <th>Сынып</th>
+                <th>Бұзушылық түрі</th>
+                <th>Қайталау саны</th>
+                <th>Тәуекел деңгейі</th>
+              </tr>
+            </thead>
+            <tbody id="logsTableBody">
+              <!-- JavaScript арқылы толады -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. СҰРАҚТАР ТАБЫ -->
+    <div id="tabQuestions" style="display:none;">
+      <div class="card">
+        <div class="toolbar">
+          <button id="btnAddQuestion" class="btn btn-primary">+ Сұрақ қосу</button>
+          <button id="btnImportJson" class="btn btn-secondary">Импорт (JSON)</button>
+          <button id="btnExportJson" class="btn btn-secondary">Экспорт (JSON)</button>
+          <button id="btnToggleRawEditor" class="btn btn-secondary">Raw JSON редактор</button>
+          <input type="file" id="fileImportJson" accept=".json" style="display:none;" />
+        </div>
+
+        <div id="questionCardsWrap"></div>
+
+        <div id="rawEditorWrap" style="display:none;">
+          <textarea id="rawJsonEditor" class="json-editor allow-select"></textarea>
+          <div class="row-actions" style="margin-top:10px;">
+            <button id="btnApplyRawJson" class="btn btn-primary">Қолдану</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+<!-- 5. БАПТАУЛАР ТАБЫ (ЖАҢА) -->
+    <div id="tabSettings" style="display:none;">
+      <div class="card">
+        <h2>🛠 Тест баптаулары</h2>
+        <p class="subtitle" style="margin-bottom: 20px;">Тесттің қолжетімділігін және өту шарттарын реттеңіз.</p>
+        
+        <div class="grid-2" style="gap: 20px;">
+          <!-- ПИН-код -->
+          <div class="field" style="display: flex; flex-direction: column; gap: 8px;">
+            <label for="testPinCode" style="font-weight: 600; font-size: 0.9rem;">Тестке кіру ПИН-коды (бос болса, сұрамайды)</label>
+            <input type="text" id="testPinCode" placeholder="Мысалы: 2026" style="padding: 10px; border-radius: 8px; border: 1px solid var(--gray-300);" />
+          </div>
+          
+          <!-- Өту балы -->
+          <div class="field" style="display: flex; flex-direction: column; gap: 8px;">
+            <label for="passingScore" style="font-weight: 600; font-size: 0.9rem;">Өту балы (%)</label>
+            <input type="number" id="passingScore" placeholder="Мысалы: 70" min="0" max="100" style="padding: 10px; border-radius: 8px; border: 1px solid var(--gray-300);" />
+          </div>
+
+          <!-- Таймер (ұзақтығы) -->
+          <div class="field" style="display: flex; flex-direction: column; gap: 8px;">
+            <label for="testDuration" style="font-weight: 600; font-size: 0.9rem;">Тестке берілетін уақыт (минут)</label>
+            <input type="number" id="testDuration" placeholder="Мысалы: 45" min="1" style="padding: 10px; border-radius: 8px; border: 1px solid var(--gray-300);" />
+          </div>
+          
+          <!-- Басталу уақыты -->
+          <div class="field" style="display: flex; flex-direction: column; gap: 8px;">
+            <label for="testStartTime" style="font-weight: 600; font-size: 0.9rem;">Тесттің ашылу уақыты</label>
+            <input type="datetime-local" id="testStartTime" style="padding: 10px; border-radius: 8px; border: 1px solid var(--gray-300);" />
+          </div>
+
+          <!-- Аяқталу уақыты -->
+          <div class="field" style="display: flex; flex-direction: column; gap: 8px;">
+            <label for="testEndTime" style="font-weight: 600; font-size: 0.9rem;">Тесттің жабылу уақыты (Дедлайн)</label>
+            <input type="datetime-local" id="testEndTime" style="padding: 10px; border-radius: 8px; border: 1px solid var(--gray-300);" />
+          </div>
+        </div>
+        
+        <div class="toolbar" style="margin-top: 25px; display: flex; align-items: center; gap: 15px;">
+          <button id="btnSaveSettings" class="btn btn-primary" style="padding: 12px 24px; font-size: 1rem;">Сақтау</button>
+          <span id="settingsSavedMsg" style="color: #10b981; font-weight: bold; display: none;">✅ Баптаулар сәтті сақталды!</span>
+        </div>
+      </div>
+    </div>
+  <footer class="small-print">TestGuard · Мұғалім панелі</footer>
+</div>
+
+<!-- Сыртқы кітапханалар -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
